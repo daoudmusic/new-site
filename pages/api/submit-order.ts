@@ -26,14 +26,16 @@ export const getStaticPaths: GetStaticPaths = async () => {
   return { paths, fallback: false };
 };
 
-export const getStaticProps: GetStaticProps = async ({ params }) => {
+export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
   const events = await getEvents();
   const event = events.find((e) => e.slug === params?.slug);
-  return { props: { event } };
+  return { props: { event: event! } };
 };
 
 export default function EventPage({ event }: Props) {
-  if (!event) return <p>Événement introuvable</p>;
+  if (!event) {
+    return <p>Événement introuvable</p>;
+  }
 
   return (
     <main className="px-4 py-8 max-w-2xl mx-auto">
