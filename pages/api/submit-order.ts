@@ -28,15 +28,29 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
 export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
   const events = await getEvents();
-  const event = events.find((e) => e.slug === params?.slug);
-  return { props: { event: event! } };
+  const raw = events.find((e) => e.slug === params?.slug);
+  if (!raw) {
+    return { notFound: true };
+  }
+
+  // Map raw record to Event type
+  const event: Event = {
+    event_id: raw.event_id,
+    title: raw.title,
+    date: raw.date,
+    venue: raw.venue,
+    description: raw.description,
+    ticket_price: raw.ticket_price,
+    reservation_link: raw.reservation_link,
+    slug: raw.slug,
+    image_url: raw.image_url,
+    is_sold_out: raw.is_sold_out,
+  };
+
+  return { props: { event } };
 };
 
 export default function EventPage({ event }: Props) {
-  if (!event) {
-    return <p>Événement introuvable</p>;
-  }
-
   return (
     <main className="px-4 py-8 max-w-2xl mx-auto">
       <Link href="/">
