@@ -42,8 +42,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Send email with ticket
     const resend = new Resend(RESEND_API_KEY!);
-    // @ts-ignore: Resend Attachment typing may differ
-    await resend.emails.send({
+    // Prepare email options with attachment
+    const emailOptions: any = {
       from: 'tickets@daoud.shop',
       to: email,
       subject: `Your ticket for ${title}`,
@@ -55,7 +55,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           type: 'application/pdf',
         },
       ],
-    });
+    };
+    await resend.emails.send(emailOptions);
 
     return res.status(200).json({ success: true, sold: newSoldCount });
   } catch (error: any) {
