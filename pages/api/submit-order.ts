@@ -14,30 +14,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1) Récupération et validation de l'événement
+    // 1) Load and validate event
     const events = await getEvents();
     const event = events.find(e => e.event_id === eventId);
-    if (!event) {
-      return res.status(404).json({ error: 'Event not found' });
-    }
+    if (!event) return res.status(404).json({ error: 'Event not found' });
     const { title, date: eventDate, venue } = event;
 
-    // 2) Limitation à 8 billets max et réservation
+    // 2) Reserve stock (max 8 tickets)
     const qty = Math.min(quantity, 8);
     const newSold = await incrementSoldTickets(eventId, qty);
 
-    // 3) Génération du billet en PDF
+    // 3) Build PDF
     const ticketId = `${eventId}-${Date.now()}`;
     const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId });
     const pdfBuffer = Buffer.from(pdfBytes);
 
-    // 4) Envoi de l'email via Resend (on force le typage en any pour attachments)
+    // 4) Send email via Resend
     const resend = new Resend(process.env.RESEND_API_KEY!);
     const emailOptions: any = {
       from: 'tickets@daoud.shop',
       to: email,
       subject: `Your ticket for ${title}`,
       html: `<p>Thank you for your purchase, ${name}!</p>`,
+      // @ts-ignore: attachments typing mismatch in Resend SDK
       attachments: [
         {
           filename: 'ticket.pdf',
