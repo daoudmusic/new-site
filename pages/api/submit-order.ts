@@ -27,25 +27,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const newSold = await incrementSoldTickets(eventId, qty);
 
     // 3) Génération du billet en PDF
-    const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId: `${eventId}-${Date.now()}` });
-    const pdfBuffer = Buffer.from(pdfBytes); // Conversion pour Resend
+    const ticketId = `${eventId}-${Date.now()}`;
+    const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId });
+    const pdfBuffer = Buffer.from(pdfBytes);
 
-    // 4) Envoi de l'email via Resend
+    // 4) Envoi de l'email via Resend (on force le typage en any pour attachments)
     const resend = new Resend(process.env.RESEND_API_KEY!);
-    const emailOptions = {
+    const emailOptions: any = {
       from: 'tickets@daoud.shop',
       to: email,
       subject: `Your ticket for ${title}`,
       html: `<p>Thank you for your purchase, ${name}!</p>`,
-          // @ts-ignore: bypass Attachment typing mismatch
-    attachments: [
-      {
-        filename: 'ticket.pdf',
-        data: pdfBuffer,
-        type: 'application/pdf',
-      },
-    ],
-
+      attachments: [
         {
           filename: 'ticket.pdf',
           data: pdfBuffer,
@@ -53,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       ],
     };
-    await resend.emails.send(emailOptions);
+    await (resend.emails as any).send(emailOptions);
 
     return res.status(200).json({ success: true, sold: newSold });
   } catch (err: any) {
