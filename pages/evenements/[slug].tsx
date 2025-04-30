@@ -22,16 +22,16 @@ interface Props {
 
 export const getStaticPaths: GetStaticPaths = async () => {
   const events = await getEvents();
-  const paths = events.map((e) => ({ params: { slug: e.slug } }));
-  return { paths, fallback: false };
+  return {
+    paths: events.map(e => ({ params: { slug: e.slug } })),
+    fallback: false,
+  };
 };
 
 export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
   const events = await getEvents();
-  const raw = events.find((e) => e.slug === params?.slug);
-  if (!raw) {
-    return { notFound: true };
-  }
+  const raw = events.find(e => e.slug === params?.slug);
+  if (!raw) return { notFound: true };
 
   const event: Event = {
     event_id: raw.event_id,
