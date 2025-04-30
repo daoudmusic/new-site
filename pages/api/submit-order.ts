@@ -37,6 +37,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ticketId,
     });
 
+    // Convert to Buffer for Resend
+    const pdfBuffer = Buffer.from(pdfBytes);
+
     // Send email with PDF ticket
     const resend = new Resend(process.env.RESEND_API_KEY!);
     await resend.emails.send({
@@ -47,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       attachments: [
         {
           filename: 'ticket.pdf',
-          content: pdfBytes,
+          content: pdfBuffer,
           contentType: 'application/pdf',
         },
       ],
