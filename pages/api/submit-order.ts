@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).end('Method Not Allowed');
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
   const { eventId, quantity, name, email } = req.body;
@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1) Load the event
+    // 1) Récupération et validation de l'événement
     const events = await getEvents();
     const event = events.find(e => e.event_id === eventId);
     if (!event) {
@@ -22,23 +22,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const { title, date: eventDate, venue } = event;
 
-    // 2) Reserve stock
+    // 2) Limitation à 8 billets max et réservation
     const qty = Math.min(quantity, 8);
     const newSold = await incrementSoldTickets(eventId, qty);
-    const ticketId = `${eventId}-${Date.now()}`;
 
-    // 3) Build PDF
-    const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId });
-    const pdfBuffer = Buffer.from(pdfBytes);
+    // 3) Génération du billet en PDF
+    const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId: `${eventId}-${Date.now()}` });
+    const pdfBuffer = Buffer.from(pdfBytes); // Conversion pour Resend
 
-    // 4) Send email via Resend
+    // 4) Envoi de l'email via Resend
     const resend = new Resend(process.env.RESEND_API_KEY!);
-    // @ts-ignore attachments typing
-    await resend.emails.send({
+    const emailOptions = {
       from: 'tickets@daoud.shop',
       to: email,
       subject: `Your ticket for ${title}`,
       html: `<p>Thank you for your purchase, ${name}!</p>`,
+      // @ts-ignore: attachments typing mismatch
       attachments: [
         {
           filename: 'ticket.pdf',
@@ -46,11 +45,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           type: 'application/pdf',
         },
       ],
-    });
+    };
+    await resend.emails.send(emailOptions);
 
     return res.status(200).json({ success: true, sold: newSold });
   } catch (err: any) {
-    console.error(err);
+    console.error('submit-order error:', err);
     return res.status(500).json({ error: err.message || 'Internal Server Error' });
   }
 }
