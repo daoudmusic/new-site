@@ -37,8 +37,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       to: email,
       subject: `Your ticket for ${title}`,
       html: `<p>Thank you for your purchase, ${name}!</p>`,
-      // @ts-ignore: attachments typing mismatch
-      attachments: [
+          // @ts-ignore: bypass Attachment typing mismatch
+    attachments: [
+      {
+        filename: 'ticket.pdf',
+        data: pdfBuffer,
+        type: 'application/pdf',
+      },
+    ],
+
         {
           filename: 'ticket.pdf',
           data: pdfBuffer,
