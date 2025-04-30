@@ -14,17 +14,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 1) Load and validate event
+    // 1) Fetch event
     const events = await getEvents();
     const event = events.find(e => e.event_id === eventId);
-    if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
     const { title, date: eventDate, venue } = event;
 
-    // 2) Reserve stock (max 8 tickets)
+    // 2) Reserve up to 8 tickets
     const qty = Math.min(quantity, 8);
     const newSold = await incrementSoldTickets(eventId, qty);
 
-    // 3) Build PDF
+    // 3) Generate PDF
     const ticketId = `${eventId}-${Date.now()}`;
     const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId });
     const pdfBuffer = Buffer.from(pdfBytes);
@@ -36,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       to: email,
       subject: `Your ticket for ${title}`,
       html: `<p>Thank you for your purchase, ${name}!</p>`,
-      // @ts-ignore: attachments typing mismatch in Resend SDK
+      // @ts-ignore: bypass attachment typing mismatch
       attachments: [
         {
           filename: 'ticket.pdf',
