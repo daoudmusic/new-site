@@ -1,6 +1,8 @@
+// pages/index.tsx
+
 import Link from 'next/link';
 import Image from 'next/image';
-import { GetStaticProps } from 'next';
+import { GetServerSideProps } from 'next';
 import { getEvents } from '../lib/sheets';
 
 interface Event {
@@ -18,7 +20,7 @@ interface Props {
   events: Event[];
 }
 
-export const getStaticProps: GetStaticProps<Props> = async () => {
+export const getServerSideProps: GetServerSideProps<Props> = async () => {
   const rawEvents = await getEvents();
   const events: Event[] = rawEvents.map(raw => ({
     event_id: raw.event_id,
