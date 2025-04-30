@@ -1,82 +1,56 @@
-import { GetStaticPaths, GetStaticProps } from 'next';
-import Image from 'next/image';
-import Link from 'next/link';
-import { getEvents } from '../../lib/sheets';
+import type { NextApiRequest, NextApiResponse } from 'next';
+import { getEvents, incrementSoldTickets } from '../../lib/sheets';
+import { generateTicketPDF } from '../../utils/pdf';
+import { Resend } from 'resend';
 
-interface Event {
-  event_id: string;
-  title: string;
-  date: string;
-  venue: string;
-  description: string;
-  ticket_price: string;
-  reservation_link: string;
-  slug: string;
-  image_url?: string;
-  is_sold_out?: string;
-}
-
-interface Props {
-  event: Event;
-}
-
-export const getStaticPaths: GetStaticPaths = async () => {
-  const events = await getEvents();
-  const paths = events.map((event) => ({ params: { slug: event.slug } }));
-  return { paths, fallback: false };
-};
-
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
-  const events = await getEvents();
-  const raw = events.find((e) => e.slug === params?.slug);
-  if (!raw) {
-    return { notFound: true };
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== 'POST') {
+    return res.status(405).end('Method Not Allowed');
   }
 
-  // Map raw record to Event type
-  const event: Event = {
-    event_id: raw.event_id,
-    title: raw.title,
-    date: raw.date,
-    venue: raw.venue,
-    description: raw.description,
-    ticket_price: raw.ticket_price,
-    reservation_link: raw.reservation_link,
-    slug: raw.slug,
-    image_url: raw.image_url,
-    is_sold_out: raw.is_sold_out,
-  };
+  const { eventId, quantity, name, email } = req.body;
+  if (!eventId || typeof quantity !== 'number' || !name || !email) {
+    return res.status(400).json({ error: 'Missing or invalid required fields' });
+  }
 
-  return { props: { event } };
-};
+  try {
+    // 1) Load the event
+    const events = await getEvents();
+    const event = events.find(e => e.event_id === eventId);
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    const { title, date: eventDate, venue } = event;
 
-export default function EventPage({ event }: Props) {
-  return (
-    <main className="px-4 py-8 max-w-2xl mx-auto">
-      <Link href="/">
-        <a className="text-blue-600 mb-4 inline-block">← Retour</a>
-      </Link>
-      <Image
-        src={event.image_url || '/default-event.jpg'}
-        alt={event.title}
-        width={800}
-        height={600}
-        className="rounded-xl object-cover w-full h-96 mb-6"
-      />
-      <h1 className="text-3xl font-bold mb-2">{event.title}</h1>
-      <p className="text-gray-600 mb-2">{event.date} — {event.venue}</p>
-      <p className="mb-4">{event.description}</p>
+    // 2) Reserve stock
+    const qty = Math.min(quantity, 8);
+    const newSold = await incrementSoldTickets(eventId, qty);
+    const ticketId = `${eventId}-${Date.now()}`;
 
-      {event.is_sold_out === 'TRUE' ? (
-        <p className="text-red-600 font-bold">Complet</p>
-      ) : (
-        <a
-          href={event.reservation_link}
-          className="inline-block bg-black text-white px-6 py-3 rounded-lg hover:bg-gray-800"
-        >
-          Réserver — {event.ticket_price}€
-        </a>
-      )}
-    </main>
-  );
+    // 3) Build PDF
+    const pdfBytes = await generateTicketPDF({ name, eventTitle: title, eventDate, venue, ticketId });
+    const pdfBuffer = Buffer.from(pdfBytes);
+
+    // 4) Send email via Resend
+    const resend = new Resend(process.env.RESEND_API_KEY!);
+    // @ts-ignore attachments typing
+    await resend.emails.send({
+      from: 'tickets@daoud.shop',
+      to: email,
+      subject: `Your ticket for ${title}`,
+      html: `<p>Thank you for your purchase, ${name}!</p>`,
+      attachments: [
+        {
+          filename: 'ticket.pdf',
+          data: pdfBuffer,
+          type: 'application/pdf',
+        },
+      ],
+    });
+
+    return res.status(200).json({ success: true, sold: newSold });
+  } catch (err: any) {
+    console.error(err);
+    return res.status(500).json({ error: err.message || 'Internal Server Error' });
+  }
 }
