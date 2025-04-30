@@ -50,8 +50,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       attachments: [
         {
           filename: 'ticket.pdf',
-          content: pdfBuffer,
-          contentType: 'application/pdf',
+          data: pdfBuffer,
+          type: 'application/pdf',
         },
       ],
     });
