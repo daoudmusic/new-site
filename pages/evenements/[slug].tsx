@@ -1,4 +1,6 @@
-import { GetStaticPaths, GetStaticProps } from 'next';
+// pages/evenements/[slug].tsx
+
+import { GetServerSideProps } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { getEvents } from '../../lib/sheets';
@@ -17,21 +19,16 @@ interface Event {
 }
 
 interface Props {
-  event: Event;
+  event: Event | null;
 }
 
-export const getStaticPaths: GetStaticPaths = async () => {
+export const getServerSideProps: GetServerSideProps<Props> = async ({ params }) => {
   const events = await getEvents();
-  return {
-    paths: events.map(e => ({ params: { slug: e.slug } })),
-    fallback: false,
-  };
-};
+  const raw = events.find(e => e.slug === params?.slug) || null;
 
-export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
-  const events = await getEvents();
-  const raw = events.find(e => e.slug === params?.slug);
-  if (!raw) return { notFound: true };
+  if (!raw) {
+    return { notFound: true };
+  }
 
   const event: Event = {
     event_id: raw.event_id,
@@ -50,6 +47,8 @@ export const getStaticProps: GetStaticProps<Props> = async ({ params }) => {
 };
 
 export default function EventPage({ event }: Props) {
+  if (!event) return <p>Événement introuvable</p>;
+
   return (
     <main className="px-4 py-8 max-w-2xl mx-auto">
       <Link href="/">
