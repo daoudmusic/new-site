@@ -46,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       html: `<p>Thank you for your purchase, ${name}!</p>`,
       attachments: [
         {
-          name: 'ticket.pdf',
+          filename: 'ticket.pdf',
           data: pdfBytes,
           contentType: 'application/pdf',
         },
